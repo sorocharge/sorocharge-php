@@ -196,7 +196,6 @@ final class SignEntryTest extends TestCase
 
         $command = [
             PHP_BINARY,
-            '-n',
             '-d', 'extension=' . self::extensionPath(),
             '-d', 'memory_limit=32M',
             '-r', $script,

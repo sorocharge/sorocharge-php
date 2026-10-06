@@ -12,6 +12,12 @@ case "$(uname -s)" in
 esac
 export SOROCHARGE_EXTENSION="$PWD/target/debug/$lib"
 
-# -n: ignore php.ini, so a globally installed (possibly release) copy of the
-# extension can't load first and shadow the one just built.
-exec php -n -d extension="$SOROCHARGE_EXTENSION" vendor/bin/phpunit "$@"
+# A copy of the extension already loaded by php.ini would shadow the one just
+# built (PHP keeps the first and only warns), so refuse rather than test it.
+# php.ini itself stays on: PHPUnit needs extensions it loads (dom, mbstring).
+if php -r 'exit(extension_loaded("sorocharge") ? 0 : 1);'; then
+    echo "php.ini already loads a sorocharge extension; disable it to test this build." >&2
+    exit 1
+fi
+
+exec php -d extension="$SOROCHARGE_EXTENSION" vendor/bin/phpunit "$@"
