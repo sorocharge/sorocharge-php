@@ -5,7 +5,7 @@ use ext_php_rs::prelude::*;
 use sorocharge_signer::{Address, SorochargeError};
 use stellar_xdr::ScAddress;
 
-use crate::errors::{guard, invalid_argument, to_php};
+use crate::errors::{guard, invalid_argument, to_php, BindResult};
 
 /// One SEP-41 transfer to build, sign, or verify an authorization entry for.
 ///
@@ -38,7 +38,7 @@ impl ChargeParams {
         payer: &str,
         recipient: &str,
         valid_until_ledger: i64,
-    ) -> PhpResult<Self> {
+    ) -> BindResult<Self> {
         guard(|| {
             let asset_contract = parse_address(asset_contract)?;
             if !matches!(asset_contract, ScAddress::Contract(_)) {
@@ -91,7 +91,7 @@ impl ChargeParams {
 
 /// Decodes a strkey with the same `stellar-xdr` parser core's types come from,
 /// reporting failure as core's own `InvalidAddress` variant.
-pub(crate) fn parse_address(strkey: &str) -> PhpResult<Address> {
+pub(crate) fn parse_address(strkey: &str) -> BindResult<Address> {
     strkey.parse::<ScAddress>().map_err(|_| {
         to_php(SorochargeError::InvalidAddress {
             strkey: strkey.to_string(),
@@ -103,7 +103,7 @@ pub(crate) fn parse_address(strkey: &str) -> PhpResult<Address> {
 /// digits, no sign, no whitespace, no leading zeros. Rejecting rather than
 /// normalizing (`" 10"`, `"+10"`, `"010"`, `"1e3"`, `"10.0"`) keeps a typo in
 /// an amount from being silently reinterpreted as a different amount.
-fn parse_amount(amount: &str) -> PhpResult<i128> {
+fn parse_amount(amount: &str) -> BindResult<i128> {
     let canonical = !amount.is_empty()
         && amount.bytes().all(|b| b.is_ascii_digit())
         && (amount == "0" || !amount.starts_with('0'));
@@ -120,7 +120,7 @@ fn parse_amount(amount: &str) -> PhpResult<i128> {
 
 /// Narrows a PHP `int` to a ledger sequence number, rejecting anything
 /// outside `u32` instead of wrapping.
-pub(crate) fn parse_ledger(name: &str, ledger: i64) -> PhpResult<u32> {
+pub(crate) fn parse_ledger(name: &str, ledger: i64) -> BindResult<u32> {
     u32::try_from(ledger).map_err(|_| {
         invalid_argument(format!(
             "{name} must be between 0 and {}, got {ledger}",

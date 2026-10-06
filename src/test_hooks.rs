@@ -5,13 +5,13 @@
 use ext_php_rs::prelude::*;
 use sorocharge_signer::SorochargeError;
 
-use crate::errors::{guard, invalid_argument, to_php};
+use crate::errors::{guard, invalid_argument, to_php, BindResult};
 
 /// Panics on purpose, so the suite can prove a Rust panic surfaces as
 /// `Sorocharge\InternalErrorException` rather than crashing PHP.
 #[php_function]
 #[php(name = "Sorocharge\\Internal\\trigger_panic")]
-pub fn trigger_panic() -> PhpResult<()> {
+pub fn trigger_panic() -> BindResult<()> {
     guard(|| panic!("deliberate panic from Sorocharge\\Internal\\trigger_panic"))
 }
 
@@ -20,7 +20,7 @@ pub fn trigger_panic() -> PhpResult<()> {
 /// well-formed PHP input reaches. Only compiled with the `test-hooks` feature.
 #[php_function]
 #[php(name = "Sorocharge\\Internal\\throw_core_error")]
-pub fn throw_core_error(variant: &str) -> PhpResult<()> {
+pub fn throw_core_error(variant: &str) -> BindResult<()> {
     guard(|| {
         let err = match variant {
             "InvalidAddress" => SorochargeError::InvalidAddress {

@@ -54,6 +54,21 @@ final class ExceptionHierarchyTest extends TestCase
         self::assertTrue(is_subclass_of(SorochargeException::class, \Exception::class));
     }
 
+    /**
+     * Callers construct these to simulate a failed verification in their own
+     * tests or to rethrow; classes registered by a native extension can't be,
+     * which is why the hierarchy is plain PHP.
+     */
+    #[DataProvider('coreErrorVariants')]
+    public function testExceptionsAreConstructibleFromPhp(string $variant, string $class): void
+    {
+        $previous = new \RuntimeException('cause');
+        $e = new $class('custom message', 7, $previous);
+        self::assertSame('custom message', $e->getMessage());
+        self::assertSame(7, $e->getCode());
+        self::assertSame($previous, $e->getPrevious());
+    }
+
     public function testRustPanicSurfacesAsInternalErrorExceptionNotACrash(): void
     {
         try {

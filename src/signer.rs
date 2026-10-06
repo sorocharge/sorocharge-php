@@ -5,7 +5,6 @@
 use std::panic::AssertUnwindSafe;
 use std::sync::Mutex;
 
-use ext_php_rs::exception::PhpException;
 use ext_php_rs::flags::ClassFlags;
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::{ZendCallable, ZendHashTable, Zval};
@@ -14,7 +13,7 @@ use sorocharge_signer::{Address, CredentialKind, Signer, SorochargeError};
 use stellar_xdr::{Limits, ReadXdr, SorobanAuthorizationEntry, WriteXdr};
 
 use crate::charge_params::{parse_address, ChargeParams};
-use crate::errors::{guard, invalid_argument, to_php};
+use crate::errors::{guard, internal_error, invalid_argument, to_php, BindResult, Failure};
 
 /// A charge authorization entry built by `Sorocharge::buildChargeEntry`, not
 /// yet signed. Only obtainable from that call; PHP cannot construct one.
@@ -31,12 +30,12 @@ impl UnsignedEntry {
     /// signature placeholder still empty.
     ///
     /// @throws XdrEncodingFailedException
-    pub fn to_xdr(&self) -> PhpResult<String> {
+    pub fn to_xdr(&self) -> BindResult<String> {
         guard(|| xdr_base64(self.inner.as_xdr()))
     }
 }
 
-pub(crate) fn xdr_base64(entry: &stellar_xdr::SorobanAuthorizationEntry) -> PhpResult<String> {
+pub(crate) fn xdr_base64(entry: &stellar_xdr::SorobanAuthorizationEntry) -> BindResult<String> {
     entry.to_xdr_base64(Limits::none()).map_err(|e| {
         to_php(SorochargeError::XdrEncodingFailed {
             reason: e.to_string(),
@@ -55,7 +54,7 @@ pub fn build_charge_entry(
     params: &ChargeParams,
     credential_kind: &str,
     delegates: &ZendHashTable,
-) -> PhpResult<UnsignedEntry> {
+) -> BindResult<UnsignedEntry> {
     guard(|| {
         let credential = match credential_kind {
             "legacy" | "v2" if !delegates.is_empty() => {
@@ -79,7 +78,7 @@ pub fn build_charge_entry(
                             parse_address,
                         )
                     })
-                    .collect::<PhpResult<_>>()?,
+                    .collect::<BindResult<_>>()?,
             },
             other => {
                 return Err(invalid_argument(format!(
@@ -108,7 +107,7 @@ impl SignedEntry {
     /// to an `InvokeHostFunction` operation or send to a facilitator.
     ///
     /// @throws XdrEncodingFailedException
-    pub fn to_xdr(&self) -> PhpResult<String> {
+    pub fn to_xdr(&self) -> BindResult<String> {
         guard(|| xdr_base64(self.inner.as_xdr()))
     }
 
@@ -120,7 +119,7 @@ impl SignedEntry {
     /// signature, let alone a valid one. Only `verifyEntry` does that.
     ///
     /// @throws XdrEncodingFailedException if the input is not valid XDR.
-    pub fn from_xdr(xdr: &str) -> PhpResult<Self> {
+    pub fn from_xdr(xdr: &str) -> BindResult<Self> {
         guard(|| {
             SorobanAuthorizationEntry::from_xdr_base64(xdr, Limits::len(xdr.len()))
                 .map(|entry| Self {
@@ -201,7 +200,7 @@ pub fn sign_entry(
     sign_preimage: &Zval,
     public_address: &str,
     network_passphrase: &str,
-) -> PhpResult<SignedEntry> {
+) -> BindResult<SignedEntry> {
     let outcome = guard(|| {
         if network_passphrase.is_empty() {
             return Err(invalid_argument("networkPassphrase must not be empty"));
@@ -255,7 +254,7 @@ pub fn sign_entry(
 
 enum CallOutcome {
     Signature([u8; 64]),
-    Failed(PhpException),
+    Failed(Failure),
     Bailout,
 }
 
@@ -273,7 +272,7 @@ fn call_signer(callable: &ZendCallable, preimage: &[u8]) -> CallOutcome {
         |reason: String| CallOutcome::Failed(to_php(SorochargeError::SigningFailed { reason }));
     match result {
         Err(CatchError::Bailout) => CallOutcome::Bailout,
-        Err(err) => CallOutcome::Failed(crate::errors::internal_error(&err.to_string())),
+        Err(err) => CallOutcome::Failed(internal_error(&err.to_string())),
         // An exception thrown by the closure stays pending in the engine;
         // throwing ours is then a no-op, so the caller sees the original.
         Ok(Err(err)) => signing_failed(format!("signPreimage callback failed: {err}")),

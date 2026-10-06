@@ -3,7 +3,7 @@
 use ext_php_rs::prelude::*;
 
 use crate::charge_params::{parse_ledger, ChargeParams};
-use crate::errors::{guard, invalid_argument, to_php};
+use crate::errors::{guard, invalid_argument, to_php, BindResult};
 use crate::signer::SignedEntry;
 
 /// Native implementation of `Sorocharge::verifyEntry`: returns normally only
@@ -16,7 +16,7 @@ pub fn verify_entry(
     expected: &ChargeParams,
     current_ledger: i64,
     network_passphrase: &str,
-) -> PhpResult<()> {
+) -> BindResult<()> {
     guard(|| {
         if network_passphrase.is_empty() {
             return Err(invalid_argument("networkPassphrase must not be empty"));
