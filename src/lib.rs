@@ -9,6 +9,7 @@
 
 mod charge_params;
 mod errors;
+mod signer;
 #[cfg(feature = "test-hooks")]
 mod test_hooks;
 
@@ -17,6 +18,7 @@ use ext_php_rs::prelude::*;
 #[php_module]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
     let module = errors::register(module).class::<charge_params::ChargeParams>();
+    let module = signer::register(module);
     #[cfg(feature = "test-hooks")]
     let module = test_hooks::register(module);
     module
