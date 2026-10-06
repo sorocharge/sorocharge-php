@@ -2,10 +2,15 @@
 //! and the native functions behind `Sorocharge::buildChargeEntry` and
 //! `Sorocharge::signEntry`.
 
+use std::panic::AssertUnwindSafe;
+use std::sync::Mutex;
+
+use ext_php_rs::exception::PhpException;
 use ext_php_rs::flags::ClassFlags;
 use ext_php_rs::prelude::*;
-use ext_php_rs::types::ZendHashTable;
-use sorocharge_signer::{CredentialKind, SorochargeError};
+use ext_php_rs::types::{ZendCallable, ZendHashTable, Zval};
+use ext_php_rs::zend::{bailout, try_catch, CatchError};
+use sorocharge_signer::{Address, CredentialKind, Signer, SorochargeError};
 use stellar_xdr::{Limits, ReadXdr, SorobanAuthorizationEntry, WriteXdr};
 
 use crate::charge_params::{parse_address, ChargeParams};
@@ -130,9 +135,163 @@ impl SignedEntry {
     }
 }
 
+/// Records the preimage core asks it to sign and returns a placeholder
+/// signature. Pass one of `sign_entry`: it exists only to learn the exact
+/// bytes core will sign, so the PHP closure is never called from inside
+/// core's stack frames.
+struct CapturePreimage {
+    address: Address,
+    preimage: Mutex<Option<Vec<u8>>>,
+}
+
+impl Signer for CapturePreimage {
+    fn sign_preimage(&self, preimage: &[u8]) -> Result<[u8; 64], SorochargeError> {
+        let mut slot = self
+            .preimage
+            .lock()
+            .map_err(|_| SorochargeError::SigningFailed {
+                reason: "preimage capture lock poisoned".to_string(),
+            })?;
+        *slot = Some(preimage.to_vec());
+        Ok([0; 64])
+    }
+
+    fn address(&self) -> Address {
+        self.address.clone()
+    }
+}
+
+/// Returns a signature the PHP closure already produced. Pass two of
+/// `sign_entry`: the signing payload is a pure function of the entry and the
+/// network passphrase, so it is byte-identical to the one pass one captured.
+struct FixedSignature {
+    address: Address,
+    preimage: Vec<u8>,
+    signature: [u8; 64],
+}
+
+impl Signer for FixedSignature {
+    fn sign_preimage(&self, preimage: &[u8]) -> Result<[u8; 64], SorochargeError> {
+        // Fails closed if core ever derives a different payload between the
+        // two passes, rather than attaching a signature over other bytes.
+        if preimage != self.preimage.as_slice() {
+            return Err(SorochargeError::SigningFailed {
+                reason: "signing preimage changed between passes".to_string(),
+            });
+        }
+        Ok(self.signature)
+    }
+
+    fn address(&self) -> Address {
+        self.address.clone()
+    }
+}
+
+/// Native implementation of `Sorocharge::signEntry`.
+///
+/// `$signPreimage` receives the raw 32-byte preimage as a binary string and
+/// must return the raw 64-byte ed25519 signature. If it throws, that
+/// exception reaches the caller unchanged. If it causes a fatal error, the
+/// bailout is resumed once this function's own values are dropped, so the
+/// script still stops exactly as it would without the extension.
+#[php_function]
+#[php(name = "Sorocharge\\Native\\sign_entry")]
+pub fn sign_entry(
+    entry: &UnsignedEntry,
+    sign_preimage: &Zval,
+    public_address: &str,
+    network_passphrase: &str,
+) -> PhpResult<SignedEntry> {
+    let outcome = guard(|| {
+        if network_passphrase.is_empty() {
+            return Err(invalid_argument("networkPassphrase must not be empty"));
+        }
+        let callable = ZendCallable::new(sign_preimage)
+            .map_err(|_| invalid_argument("signPreimage must be callable"))?;
+        let address = parse_address(public_address)?;
+
+        let capture = CapturePreimage {
+            address: address.clone(),
+            preimage: Mutex::new(None),
+        };
+        sorocharge_signer::sign_entry(entry.inner.clone(), &capture, network_passphrase)
+            .map_err(to_php)?;
+        let preimage = capture
+            .preimage
+            .into_inner()
+            .ok()
+            .flatten()
+            .ok_or_else(|| {
+                to_php(SorochargeError::SigningFailed {
+                    reason: "core did not request a signature".to_string(),
+                })
+            })?;
+
+        let signature = match call_signer(&callable, &preimage) {
+            CallOutcome::Signature(signature) => signature,
+            CallOutcome::Failed(err) => return Err(err),
+            CallOutcome::Bailout => return Ok(None),
+        };
+
+        let fixed = FixedSignature {
+            address,
+            preimage,
+            signature,
+        };
+        sorocharge_signer::sign_entry(entry.inner.clone(), &fixed, network_passphrase)
+            .map(|inner| Some(SignedEntry { inner }))
+            .map_err(to_php)
+    });
+    match outcome {
+        Ok(Some(signed)) => Ok(signed),
+        Err(err) => Err(err),
+        // Every Rust value this call created has been dropped by now; only
+        // frames without destructors remain between here and the engine's
+        // catch point.
+        // SAFETY: resuming a bailout the engine started inside the closure.
+        Ok(None) => unsafe { bailout() },
+    }
+}
+
+enum CallOutcome {
+    Signature([u8; 64]),
+    Failed(PhpException),
+    Bailout,
+}
+
+/// Calls the PHP signing closure inside its own `try_catch`, so a bailout
+/// lands here instead of jumping over Rust frames that own heap values.
+fn call_signer(callable: &ZendCallable, preimage: &[u8]) -> CallOutcome {
+    let mut arg = Zval::new();
+    arg.set_binary(preimage.to_vec());
+    let result = try_catch(AssertUnwindSafe(|| {
+        callable
+            .try_call(vec![&arg])
+            .map(|zval| zval.is_string().then(|| zval.binary::<u8>()).flatten())
+    }));
+    let signing_failed =
+        |reason: String| CallOutcome::Failed(to_php(SorochargeError::SigningFailed { reason }));
+    match result {
+        Err(CatchError::Bailout) => CallOutcome::Bailout,
+        Err(err) => CallOutcome::Failed(crate::errors::internal_error(&err.to_string())),
+        // An exception thrown by the closure stays pending in the engine;
+        // throwing ours is then a no-op, so the caller sees the original.
+        Ok(Err(err)) => signing_failed(format!("signPreimage callback failed: {err}")),
+        Ok(Ok(None)) => signing_failed("signPreimage must return a string".to_string()),
+        Ok(Ok(Some(bytes))) => match <[u8; 64]>::try_from(bytes.as_slice()) {
+            Ok(signature) => CallOutcome::Signature(signature),
+            Err(_) => signing_failed(format!(
+                "signPreimage must return a 64-byte ed25519 signature, got {} bytes",
+                bytes.len()
+            )),
+        },
+    }
+}
+
 pub fn register(module: ModuleBuilder) -> ModuleBuilder {
     module
         .class::<UnsignedEntry>()
         .class::<SignedEntry>()
         .function(wrap_function!(build_charge_entry))
+        .function(wrap_function!(sign_entry))
 }

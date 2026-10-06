@@ -49,6 +49,39 @@ final class Sorocharge
     }
 
     /**
+     * Signs `$entry` with a signature produced by `$signPreimage`.
+     *
+     * The private key never passes through this library: `$signPreimage` is
+     * called once with the raw 32-byte signing preimage (a binary string) and
+     * must return the raw 64-byte ed25519 signature over it, from wherever
+     * the key lives (KMS, HSM, env var). An exception it throws reaches the
+     * caller unchanged.
+     *
+     * @param callable(string): string $signPreimage
+     * @param string $publicAddress The signer's `G...` address: the payer, or
+     *     for a delegated entry, one of its delegates.
+     * @param string $networkPassphrase The passphrase of the network the
+     *     entry will be submitted to (see the *_PASSPHRASE constants). It is
+     *     hashed into what gets signed, so a signature for one network is
+     *     rejected on any other.
+     *
+     * @throws NoMatchingCredentialNodeException if `$publicAddress` is neither
+     *     the entry's payer nor one of its delegates.
+     * @throws SigningFailedException if `$signPreimage` returns anything but a
+     *     64-byte string, or `$publicAddress` is not an account (`G...`).
+     * @throws InvalidAddressException if `$publicAddress` is not a valid strkey.
+     * @throws \InvalidArgumentException for an empty network passphrase.
+     */
+    public static function signEntry(
+        UnsignedEntry $entry,
+        callable $signPreimage,
+        string $publicAddress,
+        string $networkPassphrase,
+    ): SignedEntry {
+        return Native\sign_entry($entry, $signPreimage, $publicAddress, $networkPassphrase);
+    }
+
+    /**
      * Checks that `$entry` authorizes exactly the charge in `$expected`, and
      * returns normally only if it does. Throws for the first failing check,
      * in sorocharge-core's order:

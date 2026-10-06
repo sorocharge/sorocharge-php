@@ -27,4 +27,21 @@ final class Fixtures
             $fixture['valid_until_ledger'],
         );
     }
+
+    /**
+     * The ed25519 secret key behind a golden-vector address: core derives
+     * every fixture key from a 32-byte seed of one repeated byte (payer 0x11,
+     * recipient 0x22, delegates 0x44 and 0x55). Unfunded, test-only keys.
+     */
+    public static function secretKey(int $seedByte): string
+    {
+        return sodium_crypto_sign_secretkey(sodium_crypto_sign_seed_keypair(str_repeat(chr($seedByte), 32)));
+    }
+
+    /** A signing closure in the shape signEntry expects, backed by a fixture key. */
+    public static function signer(int $seedByte): \Closure
+    {
+        $secretKey = self::secretKey($seedByte);
+        return static fn (string $preimage): string => sodium_crypto_sign_detached($preimage, $secretKey);
+    }
 }
