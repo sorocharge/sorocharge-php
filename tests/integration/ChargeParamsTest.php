@@ -27,6 +27,19 @@ final class ChargeParamsTest extends TestCase
         self::assertSame(123456, $params->validUntilLedger);
     }
 
+    public function testAcceptsNamedArguments(): void
+    {
+        $params = new ChargeParams(
+            validUntilLedger: 7,
+            recipient: self::RECIPIENT,
+            payer: self::PAYER,
+            amount: '5',
+            assetContract: self::ASSET,
+        );
+        self::assertSame('5', $params->amount);
+        self::assertSame(7, $params->validUntilLedger);
+    }
+
     public function testAmountBeyondPhpIntRangeIsPreservedExactly(): void
     {
         // i128::MAX: far past PHP_INT_MAX, which an int would silently mangle.

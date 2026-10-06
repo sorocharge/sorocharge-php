@@ -1,5 +1,10 @@
 //! `Sorocharge\ChargeParams`: the PHP face of `sorocharge_signer::ChargeParams`.
 
+// The constructor's parameter names are PHP's named-argument API
+// (`new ChargeParams(amount: '1', ...)`), and ext-php-rs takes them verbatim
+// from Rust. The macro re-emits them outside any narrower `allow` scope.
+#![allow(non_snake_case)]
+
 use ext_php_rs::flags::ClassFlags;
 use ext_php_rs::prelude::*;
 use sorocharge_signer::{Address, SorochargeError};
@@ -33,14 +38,14 @@ impl ChargeParams {
     ///     an asset that is not a contract address.
     /// @throws InvalidAddressException for an address that is not a valid strkey.
     pub fn __construct(
-        asset_contract: &str,
+        assetContract: &str,
         amount: &str,
         payer: &str,
         recipient: &str,
-        valid_until_ledger: i64,
+        validUntilLedger: i64,
     ) -> BindResult<Self> {
         guard(|| {
-            let asset_contract = parse_address(asset_contract)?;
+            let asset_contract = parse_address(assetContract)?;
             if !matches!(asset_contract, ScAddress::Contract(_)) {
                 return Err(invalid_argument(
                     "assetContract must be a contract address (C...)",
@@ -52,7 +57,7 @@ impl ChargeParams {
                     amount: parse_amount(amount)?,
                     payer: parse_address(payer)?,
                     recipient: parse_address(recipient)?,
-                    valid_until_ledger: parse_ledger("validUntilLedger", valid_until_ledger)?,
+                    valid_until_ledger: parse_ledger("validUntilLedger", validUntilLedger)?,
                 },
             })
         })
