@@ -1,0 +1,26 @@
+[package]
+name = "sorocharge-php"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98.1"
+license = "Apache-2.0"
+repository = "https://github.com/sorocharge/sorocharge-php"
+description = "Native PHP extension exposing sorocharge-core's Soroban charge-entry signer and verifier"
+publish = false
+
+[lib]
+name = "sorocharge"
+crate-type = ["cdylib"]
+
+[dependencies]
+ext-php-rs = { version = "=0.16.0" }
+# Pinned to an exact core tag: never an unpublished or floating commit.
+sorocharge-signer = { git = "https://github.com/sorocharge/sorocharge-core.git", tag = "v0.1.1" }
+# Must match sorocharge-core's own pin exactly, or `Address` and the
+# `SorobanAuthorizationEntry` inside Unsigned/SignedEntry are different types.
+stellar-xdr = { version = "=28.0.0", features = ["std", "base64"] }
+
+[profile.release]
+# A panic must unwind so it can be caught and converted into a PHP exception;
+# `panic = "abort"` would kill the PHP process instead.
+panic = "unwind"
