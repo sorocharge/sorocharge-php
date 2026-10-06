@@ -24,3 +24,8 @@ stellar-xdr = { version = "=28.0.0", features = ["std", "base64"] }
 # A panic must unwind so it can be caught and converted into a PHP exception;
 # `panic = "abort"` would kill the PHP process instead.
 panic = "unwind"
+
+[features]
+# Exposes Sorocharge\Internal\trigger_panic() for the integration suite.
+# Never enable in a build you ship.
+test-hooks = []

@@ -24,7 +24,7 @@ vendor/
 .env
 
 # Composer / PHPUnit
-php/vendor/
-php/composer.lock
+vendor/
+composer.lock
 .phpunit.cache/
 .phpunit.result.cache
