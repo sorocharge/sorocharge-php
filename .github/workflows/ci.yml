@@ -22,6 +22,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
+          extensions: sodium
           tools: composer:v2
 
       - name: Install Rust 1.98.1
@@ -42,3 +43,11 @@ jobs:
 
       - name: build extension
         run: cargo build --release
+
+      - name: composer install
+        # ext-sorocharge is the extension this repo builds; it can't be
+        # installed before the build, so skip only that platform check.
+        run: composer install --no-interaction --no-progress --ignore-platform-req=ext-sorocharge
+
+      - name: composer test (builds with test hooks, runs PHPUnit against it)
+        run: composer test

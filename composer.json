@@ -3,13 +3,21 @@
     "description": "Sign and verify x402/MPP-charge Soroban authorization entries on Stellar from PHP, via a native extension wrapping sorocharge-core. No Node.js.",
     "type": "library",
     "license": "Apache-2.0",
-    "keywords": ["stellar", "soroban", "x402", "mpp", "payments", "sep-41"],
+    "keywords": [
+        "stellar",
+        "soroban",
+        "x402",
+        "mpp",
+        "payments",
+        "sep-41"
+    ],
     "homepage": "https://github.com/sorocharge/sorocharge-php",
     "require": {
         "php": ">=8.1",
         "ext-sorocharge": "*"
     },
     "require-dev": {
+        "ext-sodium": "*",
         "phpunit/phpunit": "^10.5 || ^11.5 || ^12.0"
     },
     "autoload": {
@@ -25,5 +33,16 @@
     "config": {
         "sort-packages": true
     },
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "scripts": {
+        "build": "cargo build --release",
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "scripts/test.sh"
+        ]
+    },
+    "scripts-descriptions": {
+        "build": "Build the release extension into target/release/",
+        "test": "Build the extension with test hooks and run the PHPUnit suite against it"
+    }
 }
