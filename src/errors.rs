@@ -145,6 +145,12 @@ pub fn invalid_argument(message: impl Into<String>) -> PhpException {
     }
 }
 
+/// Builds [`InternalErrorException`] for a failure that is a bug in this
+/// extension or the engine, never a property of the caller's input.
+pub fn internal_error(detail: &str) -> PhpException {
+    PhpException::from_class::<InternalErrorException>(format!("internal error: {detail}"))
+}
+
 /// Runs a binding body, converting a panic into [`InternalErrorException`].
 ///
 /// ext-php-rs 0.16 already stops panics at the handler boundary, but turns
@@ -153,8 +159,8 @@ pub fn invalid_argument(message: impl Into<String>) -> PhpException {
 /// documented hierarchy; the ext-php-rs handler remains a second line.
 pub fn guard<T>(body: impl FnOnce() -> PhpResult<T>) -> PhpResult<T> {
     catch_unwind(AssertUnwindSafe(body)).unwrap_or_else(|payload| {
-        Err(PhpException::from_class::<InternalErrorException>(format!(
-            "internal error: Rust panic: {}",
+        Err(internal_error(&format!(
+            "Rust panic: {}",
             panic_message(payload.as_ref())
         )))
     })

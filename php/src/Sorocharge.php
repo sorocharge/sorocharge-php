@@ -14,6 +14,12 @@ namespace Sorocharge;
  */
 final class Sorocharge
 {
+    /** Network passphrase for Stellar testnet. */
+    public const TESTNET_PASSPHRASE = 'Test SDF Network ; September 2015';
+
+    /** Network passphrase for Stellar mainnet (pubnet). */
+    public const PUBNET_PASSPHRASE = 'Public Global Stellar Network ; September 2015';
+
     private function __construct()
     {
     }
@@ -40,5 +46,37 @@ final class Sorocharge
         array $delegates = [],
     ): UnsignedEntry {
         return Native\build_charge_entry($params, $credentialKind, $delegates);
+    }
+
+    /**
+     * Checks that `$entry` authorizes exactly the charge in `$expected`, and
+     * returns normally only if it does. Throws for the first failing check,
+     * in sorocharge-core's order:
+     *
+     * 1. ExpiredEntryException: the entry's expiry ledger is at or before
+     *    `$currentLedger`.
+     * 2. UnexpectedInvocationShapeException: not a single SEP-41 transfer.
+     * 3. AssetMismatchException
+     * 4. PayerMismatchException: the authorizing address is not the payer.
+     * 5. AmountMismatchException
+     * 6. RecipientMismatchException
+     * 7. InvalidSignatureException: no attached signature verifies for
+     *    `$networkPassphrase`.
+     *
+     * For a delegated entry this proves at least one delegate signature is
+     * genuine; the account contract's own signing policy is checked on-chain.
+     *
+     * @throws SorochargeException (one of the subclasses above), or
+     *     UnsupportedCredentialTypeException for a source-account credential.
+     * @throws \InvalidArgumentException for a negative or out-of-range
+     *     `$currentLedger`, or an empty network passphrase.
+     */
+    public static function verifyEntry(
+        SignedEntry $entry,
+        ChargeParams $expected,
+        int $currentLedger,
+        string $networkPassphrase,
+    ): void {
+        Native\verify_entry($entry, $expected, $currentLedger, $networkPassphrase);
     }
 }
