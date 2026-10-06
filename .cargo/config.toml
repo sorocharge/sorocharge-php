@@ -1,0 +1,4 @@
+# PHP resolves the Zend symbols when it dlopen()s the extension, so the macOS
+# linker must not demand them at link time. Linux cdylibs already allow this.
+[target.'cfg(target_os = "macos")']
+rustflags = ["-C", "link-arg=-Wl,-undefined,dynamic_lookup"]
