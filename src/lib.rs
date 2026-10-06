@@ -7,6 +7,7 @@
 
 #![cfg_attr(windows, feature(abi_vectorcall))]
 
+mod charge_params;
 mod errors;
 #[cfg(feature = "test-hooks")]
 mod test_hooks;
@@ -15,7 +16,7 @@ use ext_php_rs::prelude::*;
 
 #[php_module]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
-    let module = errors::register(module);
+    let module = errors::register(module).class::<charge_params::ChargeParams>();
     #[cfg(feature = "test-hooks")]
     let module = test_hooks::register(module);
     module
