@@ -88,12 +88,15 @@ final class Sorocharge
      *
      * 1. ExpiredEntryException: the entry's expiry ledger is at or before
      *    `$currentLedger`.
-     * 2. UnexpectedInvocationShapeException: not a single SEP-41 transfer.
-     * 3. AssetMismatchException
-     * 4. PayerMismatchException: the authorizing address is not the payer.
-     * 5. AmountMismatchException
-     * 6. RecipientMismatchException
-     * 7. InvalidSignatureException: no attached signature verifies for
+     * 2. ExpirationExceedsAllowanceException: the entry stays valid past
+     *    `$expected->validUntilLedger`, i.e. longer than you agreed to accept.
+     *    Set it to the latest expiry you will honor, not the current ledger.
+     * 3. UnexpectedInvocationShapeException: not a single SEP-41 transfer.
+     * 4. AssetMismatchException
+     * 5. PayerMismatchException: the authorizing address is not the payer.
+     * 6. AmountMismatchException
+     * 7. RecipientMismatchException
+     * 8. InvalidSignatureException: no attached signature verifies for
      *    `$networkPassphrase`.
      *
      * For a delegated entry this proves at least one delegate signature is

@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Sorocharge\AmountMismatchException;
 use Sorocharge\AssetMismatchException;
 use Sorocharge\ChargeParams;
+use Sorocharge\ExpirationExceedsAllowanceException;
 use Sorocharge\ExpiredEntryException;
 use Sorocharge\InvalidSignatureException;
 use Sorocharge\PayerMismatchException;
@@ -79,6 +80,59 @@ final class VerifyEntryTest extends TestCase
     {
         $this->expectException(ExpiredEntryException::class);
         $this->verify($this->entry(), $this->expected(), $this->fixture['valid_until_ledger']);
+    }
+
+    /**
+     * An entry that is not yet expired but stays valid past what the payee
+     * agreed to accept. Signed here (not the golden vector) so its expiry is
+     * chosen by this test.
+     */
+    public function testRejectsEntryValidLongerThanExpectedAllows(): void
+    {
+        $currentLedger = 1000;
+        $entryExpiry = $currentLedger + 500;
+        $allowance = $currentLedger + 100; // above currentLedger, below the entry's expiry
+
+        $signed = $this->signFreshEntry($entryExpiry);
+        $expected = $this->expected(['valid_until_ledger' => $allowance]);
+
+        try {
+            $this->verify($signed, $expected, $currentLedger);
+            self::fail('an entry valid past the allowance verified');
+        } catch (ExpirationExceedsAllowanceException $e) {
+            self::assertStringContainsString((string) $entryExpiry, $e->getMessage());
+            self::assertStringContainsString((string) $allowance, $e->getMessage());
+        }
+    }
+
+    public function testAcceptsEntryExpiringExactlyAtOrBeforeTheAllowance(): void
+    {
+        $signed = $this->signFreshEntry(1500);
+        $this->verify($signed, $this->expected(['valid_until_ledger' => 1500]), 1000);
+        $this->verify($signed, $this->expected(['valid_until_ledger' => 9000]), 1000);
+        $this->addToAssertionCount(2);
+    }
+
+    public function testAllowanceIsCheckedRightAfterExpiry(): void
+    {
+        // Over-long and the wrong amount: the allowance check comes first.
+        $signed = $this->signFreshEntry(1500);
+        $this->expectException(ExpirationExceedsAllowanceException::class);
+        $this->verify($signed, $this->expected(['valid_until_ledger' => 1100, 'amount' => '1']), 1000);
+    }
+
+    private function signFreshEntry(int $validUntilLedger): SignedEntry
+    {
+        $unsigned = Sorocharge::buildChargeEntry(
+            $this->expected(['valid_until_ledger' => $validUntilLedger]),
+            'v2',
+        );
+        return Sorocharge::signEntry(
+            $unsigned,
+            Fixtures::signer(0x11),
+            $this->fixture['payer'],
+            $this->fixture['network_passphrase'],
+        );
     }
 
     public function testRejectsNonTransferInvocation(): void

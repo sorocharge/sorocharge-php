@@ -1635,8 +1635,8 @@ dependencies = [
 
 [[package]]
 name = "sorocharge-signer"
-version = "0.1.0"
-source = "git+https://github.com/sorocharge/sorocharge-core.git?tag=v0.1.1#bd0b9bf82d906cb408902cc7cc9554518d731e87"
+version = "0.1.2"
+source = "git+https://github.com/sorocharge/sorocharge-core.git?tag=v0.1.2#de36558687915ff57e1c1687b403c7d6ddf98daf"
 dependencies = [
  "ed25519-dalek",
  "getrandom",

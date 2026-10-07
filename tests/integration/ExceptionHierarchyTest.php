@@ -26,6 +26,8 @@ final class ExceptionHierarchyTest extends TestCase
             'DuplicateDelegateSigner', 'ExpiredEntry', 'UnexpectedInvocationShape',
             'AssetMismatch', 'PayerMismatch', 'AmountMismatch', 'RecipientMismatch',
             'InvalidSignature', 'NoMatchingCredentialNode', 'SigningFailed', 'XdrEncodingFailed',
+            'ExpirationExceedsAllowance', 'SimulationEventsMalformed', 'UnexpectedBalanceChange',
+            'ExpectedTransferMissing',
         ];
         $cases = [];
         foreach ($variants as $variant) {

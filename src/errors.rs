@@ -75,6 +75,9 @@ pub fn to_php(err: SorochargeError) -> Failure {
         SorochargeError::EmptyDelegateSigners => "Sorocharge\\EmptyDelegateSignersException",
         SorochargeError::DuplicateDelegateSigner => "Sorocharge\\DuplicateDelegateSignerException",
         SorochargeError::ExpiredEntry { .. } => "Sorocharge\\ExpiredEntryException",
+        SorochargeError::ExpirationExceedsAllowance { .. } => {
+            "Sorocharge\\ExpirationExceedsAllowanceException"
+        }
         SorochargeError::UnexpectedInvocationShape => {
             "Sorocharge\\UnexpectedInvocationShapeException"
         }
@@ -86,6 +89,16 @@ pub fn to_php(err: SorochargeError) -> Failure {
         SorochargeError::NoMatchingCredentialNode => {
             "Sorocharge\\NoMatchingCredentialNodeException"
         }
+        // Raised only by verify_transfer_effects, which this binding does not
+        // expose (it is facilitator-side). Mapped anyway: no variant may fall
+        // through to a generic exception.
+        SorochargeError::SimulationEventsMalformed { .. } => {
+            "Sorocharge\\SimulationEventsMalformedException"
+        }
+        SorochargeError::UnexpectedBalanceChange { .. } => {
+            "Sorocharge\\UnexpectedBalanceChangeException"
+        }
+        SorochargeError::ExpectedTransferMissing => "Sorocharge\\ExpectedTransferMissingException",
         SorochargeError::SigningFailed { .. } => "Sorocharge\\SigningFailedException",
         SorochargeError::XdrEncodingFailed { .. } => "Sorocharge\\XdrEncodingFailedException",
     };

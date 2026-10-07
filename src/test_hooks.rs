@@ -33,6 +33,17 @@ pub fn throw_core_error(variant: &str) -> BindResult<()> {
                 valid_until_ledger: 10,
                 current_ledger: 11,
             },
+            "ExpirationExceedsAllowance" => SorochargeError::ExpirationExceedsAllowance {
+                signature_expiration_ledger: 20,
+                allowed_until_ledger: 15,
+            },
+            "SimulationEventsMalformed" => SorochargeError::SimulationEventsMalformed {
+                reason: "test".to_string(),
+            },
+            "UnexpectedBalanceChange" => SorochargeError::UnexpectedBalanceChange {
+                reason: "test".to_string(),
+            },
+            "ExpectedTransferMissing" => SorochargeError::ExpectedTransferMissing,
             "UnexpectedInvocationShape" => SorochargeError::UnexpectedInvocationShape,
             "AssetMismatch" => SorochargeError::AssetMismatch,
             "PayerMismatch" => SorochargeError::PayerMismatch,
