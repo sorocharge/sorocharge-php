@@ -19,6 +19,12 @@ does not wrap the core's x402 or MPP protocol crates, does not speak HTTP, and
 does not submit transactions. You put the signed entry into your own x402/MPP
 framing and settlement. Keys are never stored: you pass a signing callback.
 
+Core also provides `verify_transfer_effects`, which checks that a
+transaction's simulation shows only the expected transfer (no extra mint,
+burn, or transfer). This binding doesn't expose it, because it belongs to the
+facilitator that simulates and submits transactions, which is out of scope
+here.
+
 ## Requirements
 
 - **PHP 8.1 or newer.** The extension is built with
@@ -105,7 +111,7 @@ network's ledger.
 | `new ChargeParams(string $assetContract, string $amount, string $payer, string $recipient, int $validUntilLedger)` | Read-only. `$amount` must be a canonical non-negative integer string (no sign, whitespace, or leading zeros; up to i128). `$assetContract` must be a `C...` contract. |
 | `Sorocharge::buildChargeEntry(ChargeParams $params, string $credentialKind, array $delegates = []): UnsignedEntry` | `$credentialKind`: `'legacy'`, `'v2'` (CAP-71, mandatory from protocol 28), or `'delegated'`. `$delegates` is required and non-empty for `'delegated'`, and must be empty otherwise. |
 | `Sorocharge::signEntry(UnsignedEntry $entry, callable $signPreimage, string $publicAddress, string $networkPassphrase): SignedEntry` | `$publicAddress` is the payer or, for a delegated entry, one delegate. An exception thrown by `$signPreimage` reaches you unchanged. |
-| `Sorocharge::verifyEntry(SignedEntry $entry, ChargeParams $expected, int $currentLedger, string $networkPassphrase): void` | Returns only if every check passes, otherwise throws for the first failure, in order: expiry, invocation shape, asset, payer, amount, recipient, signature. |
+| `Sorocharge::verifyEntry(SignedEntry $entry, ChargeParams $expected, int $currentLedger, string $networkPassphrase): void` | Returns only if every check passes, otherwise throws for the first failure, in order: expiry, expiry allowance, invocation shape, asset, payer, amount, recipient, signature. `$expected->validUntilLedger` is the latest expiry you accept: an entry valid any longer is rejected. |
 | `UnsignedEntry::toXdr()`, `SignedEntry::toXdr()`, `SignedEntry::fromXdr(string)` | Base64 `SorobanAuthorizationEntry` XDR. `fromXdr` proves nothing; only `verifyEntry` does. |
 
 The network passphrase is a required argument everywhere it matters. There is
@@ -122,11 +128,15 @@ Every `sorocharge-core` error has its own class, all extending the abstract
 `Sorocharge\SorochargeException` (which extends `\Exception`):
 `InvalidAddressException`, `UnsupportedCredentialTypeException`,
 `EmptyDelegateSignersException`, `DuplicateDelegateSignerException`,
-`ExpiredEntryException`, `UnexpectedInvocationShapeException`,
+`ExpiredEntryException`, `ExpirationExceedsAllowanceException`,
+`UnexpectedInvocationShapeException`,
 `AssetMismatchException`, `PayerMismatchException`, `AmountMismatchException`,
 `RecipientMismatchException`, `InvalidSignatureException`,
 `NoMatchingCredentialNodeException`, `SigningFailedException`,
-`XdrEncodingFailedException`.
+`XdrEncodingFailedException`, and the simulation-check exceptions
+`SimulationEventsMalformedException`, `UnexpectedBalanceChangeException`, and
+`ExpectedTransferMissingException`. The last three are never thrown by this
+binding: they come from a core function it doesn't expose (see Scope).
 
 Input this library rejects before reaching the core (a malformed amount, an
 unknown credential kind, delegates where none belong) throws SPL's
@@ -145,10 +155,10 @@ exactly as it would anywhere else.
   on-chain, which also consumes its nonce. Until then the same entry keeps
   verifying, so refuse entries you have already accepted (the Laravel example
   shows one way) and settle promptly.
-- **`verifyEntry` rejects expired entries but does not cap expiry.**
-  `ChargeParams::$validUntilLedger` is used when building, not compared when
-  verifying, so an entry can be valid far into the future. Size your
-  replay protection for the longest expiry you will settle.
+- **Set `$expected->validUntilLedger` to the latest expiry you accept**, such
+  as the current ledger plus a few minutes of ledgers. Not the current ledger
+  itself: then every real entry is rejected as too long-lived. Size your
+  replay protection to outlive that window.
 - **Delegated entries:** verification proves at least one delegate signature
   is genuine. The account contract's own policy (how many delegates must
   sign) is enforced on-chain, not here.
