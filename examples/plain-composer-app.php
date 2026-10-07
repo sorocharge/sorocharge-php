@@ -47,6 +47,8 @@ printf("payer:          %s\n", $payer->address);
 printf("signed entry:   %s...\n", substr($wire, 0, 48));
 
 // Payee: decode what arrived and check it is exactly the charge it expected.
+// validUntilLedger here is the latest expiry the payee accepts; an entry valid
+// for longer is refused with ExpirationExceedsAllowanceException.
 $expected = new ChargeParams($config->assetContract, '5000000', $payer->address, $config->recipient, $currentLedger + 60);
 try {
     Sorocharge::verifyEntry(SignedEntry::fromXdr($wire), $expected, $config->latestLedger(), $config->passphrase);

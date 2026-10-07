@@ -11,7 +11,10 @@ declare(strict_types=1);
  * Wiring (Laravel 11+), in routes/web.php:
  *
  *   Route::get('/report', ReportController::class)
- *       ->middleware(RequireCharge::class . ':5000000');   // 0.5 XLM, in stroops
+ *       ->middleware(RequireCharge::class . ':5000000,120');
+ *
+ * i.e. 0.5 XLM (in stroops), and accept authorizations valid for at most 120
+ * ledgers (about ten minutes) from now.
  *
  * and in config/services.php:
  *
@@ -33,10 +36,11 @@ declare(strict_types=1);
  *   also consumes its nonce. Until then the same entry verifies on every
  *   request, so this middleware refuses any entry it has already accepted
  *   (Cache::add). Submit accepted entries promptly.
- * - verifyEntry does not bound how far in the future an entry may expire;
- *   it only rejects expired ones. The cache entry below lives for a day; an
- *   entry with a longer expiry could be replayed after that. Keep the cache
- *   TTL at least as long as the longest expiry you will settle.
+ * - The replay cache must outlive every entry it could see. verifyEntry
+ *   rejects entries valid past the expected validUntilLedger
+ *   (ExpirationExceedsAllowanceException), so an accepted entry expires
+ *   within $maxLedgers of acceptance; the one-day TTL below covers any
+ *   $maxLedgers up to roughly 14,000 ledgers.
  */
 
 namespace App\Http\Middleware;
@@ -55,8 +59,11 @@ final class RequireCharge
 {
     public const HEADER = 'X-Sorocharge-Entry';
 
-    /** @param string $amount Price in the asset's base units, from the route definition. */
-    public function handle(Request $request, Closure $next, string $amount): Response
+    /**
+     * @param string $amount Price in the asset's base units, from the route definition.
+     * @param string $maxLedgers Longest validity, in ledgers from now, to accept.
+     */
+    public function handle(Request $request, Closure $next, string $amount, string $maxLedgers = '120'): Response
     {
         $config = config('services.sorocharge');
         $passphrase = match ($config['network'] ?? null) {
@@ -65,30 +72,33 @@ final class RequireCharge
             default => throw new \RuntimeException('services.sorocharge.network must be "testnet" or "pubnet"'),
         };
 
+        $currentLedger = $this->latestLedger($config['rpc_url']);
+        // The latest expiry this request will accept. Entries signed for the
+        // validUntilLedger an earlier 402 advertised stay within it, since the
+        // ledger only moves forward.
+        $allowedUntil = $currentLedger + (int) $maxLedgers;
+
         $xdr = $request->header(self::HEADER);
         if (!is_string($xdr) || $xdr === '') {
-            return $this->paymentRequired($config, $amount, 'missing ' . self::HEADER);
+            return $this->paymentRequired($config, $amount, $allowedUntil, 'missing ' . self::HEADER);
         }
         $payer = $request->header('X-Sorocharge-Payer');
         if (!is_string($payer) || $payer === '') {
-            return $this->paymentRequired($config, $amount, 'missing X-Sorocharge-Payer');
+            return $this->paymentRequired($config, $amount, $allowedUntil, 'missing X-Sorocharge-Payer');
         }
 
         try {
-            $currentLedger = $this->latestLedger($config['rpc_url']);
-            // validUntilLedger is not compared by verifyEntry; the entry's own
-            // expiry is checked against $currentLedger instead.
-            $expected = new ChargeParams($config['asset'], $amount, $payer, $config['recipient'], $currentLedger);
+            $expected = new ChargeParams($config['asset'], $amount, $payer, $config['recipient'], $allowedUntil);
             Sorocharge::verifyEntry(SignedEntry::fromXdr($xdr), $expected, $currentLedger, $passphrase);
         } catch (SorochargeException | \InvalidArgumentException $e) {
             // The class says which check failed (AmountMismatchException,
-            // ExpiredEntryException, ...): log it, don't echo internals.
+            // ExpirationExceedsAllowanceException, ...): log it, don't echo internals.
             report($e);
-            return $this->paymentRequired($config, $amount, 'payment authorization rejected');
+            return $this->paymentRequired($config, $amount, $allowedUntil, 'payment authorization rejected');
         }
 
         if (!Cache::add('sorocharge:seen:' . hash('sha256', $xdr), true, now()->addDay())) {
-            return $this->paymentRequired($config, $amount, 'payment authorization already used');
+            return $this->paymentRequired($config, $amount, $allowedUntil, 'payment authorization already used');
         }
 
         // Hand the entry to your settlement queue here, then serve the request.
@@ -97,7 +107,7 @@ final class RequireCharge
     }
 
     /** @param array<string, string> $config */
-    private function paymentRequired(array $config, string $amount, string $reason): Response
+    private function paymentRequired(array $config, string $amount, int $validUntilLedger, string $reason): Response
     {
         return response()->json([
             'error' => $reason,
@@ -106,6 +116,7 @@ final class RequireCharge
                 'asset' => $config['asset'],
                 'amount' => $amount,
                 'recipient' => $config['recipient'],
+                'validUntilLedger' => $validUntilLedger,
                 'credential' => 'v2',
             ],
         ], 402);
@@ -129,13 +140,16 @@ final class RequireCharge
  * `$signPreimage` is where your key lives; it receives 32 bytes and returns a
  * 64-byte ed25519 signature (see examples/bootstrap.php for a libsodium one).
  *
- * @param array{asset: string, amount: string, recipient: string} $charge
+ * The entry expires at the validUntilLedger the 402 advertised: any later and
+ * the server rejects it with ExpirationExceedsAllowanceException.
+ *
+ * @param array{asset: string, amount: string, recipient: string, validUntilLedger: int} $charge
  * @return array<string, string> headers to retry the request with
  */
-function payFor(array $charge, string $payerAddress, callable $signPreimage, int $currentLedger, string $passphrase): array
+function payFor(array $charge, string $payerAddress, callable $signPreimage, string $passphrase): array
 {
     $unsigned = Sorocharge::buildChargeEntry(
-        new ChargeParams($charge['asset'], $charge['amount'], $payerAddress, $charge['recipient'], $currentLedger + 60),
+        new ChargeParams($charge['asset'], $charge['amount'], $payerAddress, $charge['recipient'], $charge['validUntilLedger']),
         'v2',
     );
     $signed = Sorocharge::signEntry($unsigned, $signPreimage, $payerAddress, $passphrase);
