@@ -28,3 +28,7 @@ vendor/
 composer.lock
 .phpunit.cache/
 .phpunit.result.cache
+
+# Python tooling (scripts/)
+__pycache__/
+*.pyc
