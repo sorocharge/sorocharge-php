@@ -1,0 +1,49 @@
+name: Feature or improvement
+description: Something the binding should do, or do better.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is a **binding layer** only. Signing, verification and
+        XDR logic belong in
+        [sorocharge-core](https://github.com/sorocharge/sorocharge-core), and
+        framework packages, HTTP handling and key management are out of scope
+        — see [CONTRIBUTING.md](../../CONTRIBUTING.md#what-belongs-here-and-what-does-not).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and where the library gets in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like instead
+      description: If you have a PHP signature in mind, write it out.
+      render: php
+    validations:
+      required: true
+
+  - type: dropdown
+    id: core-support
+    attributes:
+      label: Does sorocharge-core already support this?
+      description: >
+        If the behaviour does not exist in a tagged core release yet, it has to
+        land there first. Binding it here is then mechanical.
+      options:
+        - "Yes — it is in a tagged core release but not exposed in PHP"
+        - "No — core would need to change too"
+        - "I don't know"
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What are you doing today
+      description: Any workaround, and why it is unsatisfying.

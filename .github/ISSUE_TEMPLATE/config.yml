@@ -1,0 +1,11 @@
+# Blank issues are off so that reports arrive with the version, PHP version
+# and platform already filled in: an extension bug is almost never
+# reproducible without all three.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/sorocharge/sorocharge-php/security/advisories/new
+    about: Never report a vulnerability in a public issue. Use private reporting; see SECURITY.md.
+  - name: Signing, verification or XDR behaviour
+    url: https://github.com/sorocharge/sorocharge-core/issues
+    about: This repo is only the PHP binding. How entries are built, signed and verified lives in sorocharge-core — report that there.

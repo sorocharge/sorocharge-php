@@ -1,0 +1,82 @@
+name: Bug report
+description: Something in the binding layer behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a suspected **security** issue, stop and use
+        [private reporting](https://github.com/sorocharge/sorocharge-php/security/advisories/new)
+        instead. A wrong result from `verifyEntry` or `verifyTransferEffects`
+        is a security issue.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: >
+        The smallest PHP snippet that shows it. Base64 XDR and the ChargeParams
+        values involved are usually enough. A failing test against the compiled
+        extension is ideal.
+      render: php
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: sorocharge-php version or commit
+      placeholder: v0.1.0, or a commit SHA
+    validations:
+      required: true
+
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+      description: The full output of `php --version` first line.
+      placeholder: PHP 8.3.14 (cli)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux x86_64
+        - Linux aarch64
+        - macOS Apple Silicon
+        - macOS Intel
+        - Other (say so below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install the extension?
+      options:
+        - Prebuilt binary from a release
+        - Built from source (scripts/install.sh)
+        - Built from source (cargo build --release)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: >
+        Exception class and message, stack trace, or the output of
+        `php -m | grep sorocharge`. Never paste a private key or a signing
+        preimage.
