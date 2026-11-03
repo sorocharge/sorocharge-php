@@ -115,4 +115,39 @@ final class Sorocharge
     ): void {
         Native\verify_entry($entry, $expected, $currentLedger, $networkPassphrase);
     }
+
+    /**
+     * Checks that a simulation's events describe exactly one balance change:
+     * the transfer in `$expected`, and nothing else.
+     *
+     * `verifyEntry` proves the payer authorized a charge. It cannot prove
+     * that submitting the transaction moves only that charge — the same
+     * invocation may emit a second transfer, a mint, a burn, or a clawback,
+     * and a contract in the call tree is free to do so. Run this against the
+     * events from `simulateTransaction` before you submit, and especially
+     * before you sponsor the fees.
+     *
+     * Only the asset, payer, recipient, and amount of `$expected` are read;
+     * `validUntilLedger` is ignored, because an event stream carries no
+     * expiry. Pass the same `ChargeParams` you verified the entry against.
+     *
+     * An empty `$events` list throws: no events means the expected transfer
+     * is absent, which is a failure and not a pass.
+     *
+     * @param list<string> $events Base64 `DiagnosticEvent` XDR, as returned
+     *     in Soroban RPC's `diagnosticEventsXdr`. Non-contract events are
+     *     ignored, so the full list can be passed through unfiltered.
+     *
+     * @throws SimulationEventsMalformedException if an event does not decode,
+     *     or a balance event lacks the expected topics or data.
+     * @throws UnexpectedBalanceChangeException for any extra or out-of-place
+     *     balance movement, including a balance event from another contract.
+     * @throws ExpectedTransferMissingException if the expected transfer is
+     *     not among the events.
+     * @throws \InvalidArgumentException if `$events` holds a non-string.
+     */
+    public static function verifyTransferEffects(array $events, ChargeParams $expected): void
+    {
+        Native\verify_transfer_effects($events, $expected);
+    }
 }
