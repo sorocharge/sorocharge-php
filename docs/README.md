@@ -7,6 +7,7 @@ These pages cover using it correctly.
 |---|---|
 | [facilitator.md](facilitator.md) | You are building the service that charges. The order of operations, end to end, with the two library calls in their correct places and a table of which errors are worth retrying. |
 | [threat-model.md](threat-model.md) | You want to know what a passing check actually entitles you to conclude — and what it does not. Written as claims you may and may not make. |
+| [wave-appeal.md](wave-appeal.md) | Maintainer-facing. The Drips Stellar Wave appeal: the documented process, what changed in this repo since the rejection, and the owner's remaining checklist. |
 
 Start with the facilitator guide if you are writing code, and the threat model
 before you take real money.
