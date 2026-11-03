@@ -40,6 +40,9 @@ jobs:
         php: ["8.1", "8.2", "8.3", "8.4", "8.5"]
         platform:
           - { runner: ubuntu-latest, label: linux-x86_64, ext: so }
+          # Free for public repositories only. If this repo is ever made
+          # private, this entry fails rather than falling back, and the
+          # linux-aarch64 binary has to come from elsewhere.
           - { runner: ubuntu-24.04-arm, label: linux-aarch64, ext: so }
           - { runner: macos-13, label: macos-x86_64, ext: dylib }
           - { runner: macos-15, label: macos-aarch64, ext: dylib }
