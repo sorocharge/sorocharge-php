@@ -151,8 +151,13 @@ try {
 ```
 
 Full, runnable versions are in [`examples/`](examples/): a plain Composer
-script and a Laravel middleware. Both do the full round trip against a live
-network's ledger.
+script and a Laravel middleware, which both do the round trip against a live
+network's ledger, and `verify-transfer-effects.php`, which needs no network or
+keys because it replays a real testnet transaction's events.
+
+Before taking real money, read [docs/facilitator.md](docs/facilitator.md) for
+the order of operations and [docs/threat-model.md](docs/threat-model.md) for
+what a passing check does and does not prove.
 
 ## API
 
@@ -240,6 +245,18 @@ never part of a release build.
 The examples need `SOROCHARGE_NETWORK` (`testnet` or `pubnet`; never
 defaulted) and `SOROCHARGE_TEST_SECRET` (the payer's `S...` seed). Keep both in
 your environment or a gitignored `.env`.
+
+## Documentation
+
+- [docs/facilitator.md](docs/facilitator.md) — taking a charge end to end:
+  verify, simulate, check the effects, submit, settle
+- [docs/threat-model.md](docs/threat-model.md) — what each check proves, and
+  what it does not
+- [CONTRIBUTING.md](CONTRIBUTING.md) — what belongs in this repo, the CI gates,
+  and how to move the core pin
+- [SECURITY.md](SECURITY.md) — private reporting, scope, and what is
+  deliberate rather than a bug
+- [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 
