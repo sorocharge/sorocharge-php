@@ -227,6 +227,7 @@ exactly as it would anywhere else.
 ```sh
 composer install --ignore-platform-req=ext-sorocharge   # the extension isn't built yet
 composer test    # builds with test hooks, runs PHPUnit against that build
+composer stan    # PHPStan, level max, on the shipped php/src surface
 ```
 
 The suite runs against the real compiled extension. It includes stellar-sdk

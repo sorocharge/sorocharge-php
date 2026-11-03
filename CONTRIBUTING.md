@@ -70,11 +70,20 @@ Every pull request must pass, on PHP 8.1, 8.2, 8.3, 8.4 and 8.5:
 | Formatting | `cargo fmt --all -- --check` |
 | Lints, warnings are errors | `cargo clippy --all-targets --all-features -- -D warnings` |
 | Release build | `cargo build --release` |
+| Static analysis | `composer stan` (PHPStan, level max) |
 | Test suite | `composer test` |
 | Malware / supply-chain scan | `python3 scripts/malware_scan.py` plus ClamAV |
 
-Run the first four locally before pushing; they are much faster than a CI
+Those run on Linux for every PHP version, and on macOS for 8.1 and 8.5.
+Run the first five locally before pushing; they are much faster than a CI
 round trip.
+
+`composer stan` covers `php/src` only — the shipped package surface — at
+PHPStan's strictest level, and must stay at zero errors. The suite and the
+examples are out of its scope on purpose: the tests pass wrong types
+deliberately to prove the library rejects them, and the Laravel example
+references Illuminate classes that are not dev dependencies. See the comments
+in `phpstan.neon.dist`.
 
 ## Tests are not optional
 

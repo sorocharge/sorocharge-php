@@ -10,11 +10,21 @@ env:
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    name: PHP ${{ matrix.php }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # Every supported PHP version on Linux, plus the ends of the range on
+      # macOS. The README has always claimed macOS, and the extension links
+      # differently there (see .cargo/config.toml), so it needs to be built
+      # and tested somewhere rather than assumed.
       matrix:
         php: ["8.1", "8.2", "8.3", "8.4", "8.5"]
+        os: [ubuntu-latest, macos-15]
+        exclude:
+          - { os: macos-15, php: "8.2" }
+          - { os: macos-15, php: "8.3" }
+          - { os: macos-15, php: "8.4" }
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +35,10 @@ jobs:
           extensions: sodium
           tools: composer:v2
 
+      - name: Install libclang (bindgen reads the PHP headers through it)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y libclang-dev
+
       - name: Install Rust 1.98.1
         uses: dtolnay/rust-toolchain@master
         with:
@@ -33,7 +47,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: php-${{ matrix.php }}
+          key: php-${{ matrix.php }}-${{ matrix.os }}
 
       - name: fmt check
         run: cargo fmt --all -- --check
@@ -48,6 +62,9 @@ jobs:
         # ext-sorocharge is the extension this repo builds; it can't be
         # installed before the build, so skip only that platform check.
         run: composer install --no-interaction --no-progress --ignore-platform-req=ext-sorocharge
+
+      - name: phpstan (level max, on the shipped package surface)
+        run: composer stan
 
       - name: composer test (builds with test hooks, runs PHPUnit against it)
         run: composer test

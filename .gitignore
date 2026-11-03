@@ -27,6 +27,8 @@ vendor/
 vendor/
 composer.lock
 .phpunit.cache/
+.phpstan.cache/
+phpstan.neon
 .phpunit.result.cache
 
 # Python tooling (scripts/)
