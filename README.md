@@ -37,43 +37,83 @@ before you submit, and especially before you sponsor the fees.
 
 ## Requirements
 
-- **PHP 8.1 or newer.** The extension is built with
+- **PHP 8.1 or newer**, on Linux or macOS. The extension is built with
   [ext-php-rs](https://github.com/extphprs/ext-php-rs) 0.16, whose build
   refuses any PHP older than 8.1 (8.0 is end-of-life). `ChargeParams` also
   exposes its fields as PHP 8.1 readonly properties. CI tests 8.1 through 8.5.
+- `ext-sodium`, only for the test suite and examples, which sign with libsodium.
+
+Building from source additionally needs:
+
 - **PHP development headers and `php-config`** on `PATH`: ext-php-rs reads the
   PHP build configuration from it. Debian/Ubuntu: `apt install php8.x-dev`.
   Homebrew PHP and [setup-php](https://github.com/shivammathur/setup-php)
   include it.
 - **libclang**, used by bindgen to read the PHP headers. macOS: Xcode command
   line tools. Debian/Ubuntu: `apt install libclang-dev`.
-- **Rust 1.98.1** or newer (`rustup`), to build the extension.
-- `ext-sodium` only for the test suite and examples, which sign with libsodium.
+- **Rust 1.98.1** or newer (`rustup`).
 
 ## Install
 
-Build the extension:
+Two steps, in this order: the native extension, then the PHP classes.
+
+### 1. The extension
+
+A PHP extension is binary-compatible only with the PHP **minor** version and
+platform it was built for. Loading one built for a different minor version
+fails with an API-mismatch warning and the extension simply doesn't appear, so
+match it to the output of `php --version`.
+
+**From a release.** Download the file for your PHP version and platform from
+[Releases](https://github.com/sorocharge/sorocharge-php/releases), check it
+against the release's `SHA256SUMS`, and load it:
+
+```sh
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+**From source.** The install script checks every prerequisite before
+building, verifies that your PHP really loads the result, and prints the exact
+`extension=` line and the right place to put it:
 
 ```sh
 git clone https://github.com/sorocharge/sorocharge-php
 cd sorocharge-php
-cargo build --release
-# -> target/release/libsorocharge.so (Linux) or libsorocharge.dylib (macOS)
+./scripts/install.sh
 ```
 
-Load it from `php.ini` (see `php --ini` for which file):
-
-```ini
-extension=/absolute/path/to/target/release/libsorocharge.so
-```
-
-`php -m | grep sorocharge` should now list it. Then add the PHP package, which
-provides the `Sorocharge\Sorocharge` facade and the exception classes, and
-requires `ext-sorocharge`:
+Either way, confirm it with:
 
 ```sh
-composer require sorocharge/sorocharge
+php -m | grep sorocharge
 ```
+
+### 2. The PHP package
+
+The facade (`Sorocharge\Sorocharge`) and the exception hierarchy are plain
+PHP, installed with Composer.
+
+> **Not on Packagist yet.** `composer require sorocharge/sorocharge` does not
+> resolve. Until it is published, point Composer at this repository, which
+> works today and pins by tag just the same.
+
+In your project's `composer.json`:
+
+```json
+{
+    "repositories": [
+        { "type": "vcs", "url": "https://github.com/sorocharge/sorocharge-php" }
+    ],
+    "require": {
+        "sorocharge/sorocharge": "^0.1"
+    }
+}
+```
+
+Then `composer update sorocharge/sorocharge`. If you have not loaded the
+extension yet, add `--ignore-platform-req=ext-sorocharge` — the package
+declares it, so Composer refuses to install until the extension is present or
+the check is skipped.
 
 ## Quickstart
 

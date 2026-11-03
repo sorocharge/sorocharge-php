@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sorocharge\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Sorocharge\InternalErrorException;
 use Sorocharge\SorochargeException;
@@ -37,6 +38,7 @@ final class ExceptionHierarchyTest extends TestCase
     }
 
     #[DataProvider('coreErrorVariants')]
+    #[Group('needs-test-hooks')]
     public function testEachCoreErrorVariantThrowsItsOwnSubclass(string $variant, string $class): void
     {
         self::assertTrue(class_exists($class), "$class is not registered");
@@ -71,6 +73,7 @@ final class ExceptionHierarchyTest extends TestCase
         self::assertSame($previous, $e->getPrevious());
     }
 
+    #[Group('needs-test-hooks')]
     public function testRustPanicSurfacesAsInternalErrorExceptionNotACrash(): void
     {
         try {
@@ -87,6 +90,7 @@ final class ExceptionHierarchyTest extends TestCase
         \Sorocharge\Internal\throw_core_error('ExpiredEntry');
     }
 
+    #[Group('needs-test-hooks')]
     public function testBindingLayerRejectionIsSplInvalidArgumentException(): void
     {
         $this->expectException(\InvalidArgumentException::class);
