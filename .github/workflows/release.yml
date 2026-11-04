@@ -56,9 +56,11 @@ jobs:
           extensions: sodium
           tools: composer:v2
 
-      - name: Install libclang (bindgen reads the PHP headers through it)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libclang-dev
+      # No libclang install step here on purpose. The runner images already
+      # ship a working libclang, and `apt-get install libclang-dev` pulls an
+      # llvm whose x86 SSE intrinsics headers (xmmintrin.h, emmintrin.h)
+      # bindgen cannot parse against the PHP headers, failing every Linux job
+      # with "Unable to generate bindings for PHP".
 
       - name: Install Rust 1.98.1
         uses: dtolnay/rust-toolchain@master

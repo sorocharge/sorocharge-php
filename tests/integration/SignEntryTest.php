@@ -208,7 +208,13 @@ final class SignEntryTest extends TestCase
         $stderr = stream_get_contents($pipes[2]);
         $exitCode = proc_close($process);
 
-        self::assertSame(255, $exitCode, "expected a fatal-error exit, got $exitCode; stderr: $stderr");
+        // Not a specific code: PHP reports a fatal error as 255 on most
+        // builds but as 1 on others (PHP 8.1 on macOS, for one), and which it
+        // is says nothing about the behaviour under test. What matters is that
+        // the script died, that it died of the memory limit, and -- the four
+        // assertions below -- that the error was not catchable and execution
+        // did not continue past it.
+        self::assertNotSame(0, $exitCode, "expected a fatal-error exit, got success; stderr: $stderr");
         self::assertStringContainsString('Allowed memory size', $stdout . $stderr);
         self::assertStringContainsString('shutdown-ran', $stdout);
         self::assertStringNotContainsString('caught', $stdout);
