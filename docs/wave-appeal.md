@@ -199,17 +199,18 @@ Existing:
 | [#1](https://github.com/sorocharge/sorocharge-php/issues/1) CONTRIBUTING and SECURITY | — | **Close it; done** |
 | [#4](https://github.com/sorocharge/sorocharge-php/issues/4) surface authorization expiry | — | Keep out: blocked on sorocharge-core#8 |
 
-Worth opening, to give contributors real work at a range of sizes:
+Opened 2026-11-04, sized from Trivial to High so there is work at every
+level:
 
-| Proposed | Suggested | Why it is real |
+| Issue | Suggested | Why it is real |
 |---|---|---|
-| Windows support: `.cargo/config.toml` only handles the macOS linker, and CI never builds Windows | High | ext-php-rs supports it; the matrix and the linker flags both need work |
-| A reusable GitHub Action that installs the extension from a release | High | Makes the prebuilt binaries usable in one line of someone else's CI |
-| Type the test fixtures so `tests/integration` passes PHPStan at max | Medium | `Fixtures::load()` returns `mixed`, which is why tests are outside the analysed paths today |
-| An end-to-end x402 facilitator example that really simulates and submits | Medium | `examples/verify-transfer-effects.php` replays recorded events; nothing shows the live loop |
-| Publish the docs as a GitHub Pages site | Medium | `docs/` is markdown only; there is no docs site |
-| Verify the install script on Debian, Fedora and Alpine, and fix what it gets wrong | Medium | It is only proven on macOS and Ubuntu CI |
-| Add the missing `php-config`/`libclang` hints for Fedora and Alpine to the install script | Trivial | Small, self-contained, genuinely useful first issue |
+| [#8](https://github.com/sorocharge/sorocharge-php/issues/8) Windows support | High | `.cargo/config.toml` only handles the macOS linker, nothing builds Windows, and `abi_vectorcall` may force a nightly toolchain |
+| [#9](https://github.com/sorocharge/sorocharge-php/issues/9) a reusable action that installs the extension from a release | High | Turns the new prebuilt binaries into one line of someone else's CI; resolving the right asset per PHP minor is the real work |
+| [#11](https://github.com/sorocharge/sorocharge-php/issues/11) end-to-end x402 facilitator that really simulates and submits | Medium | `verify-transfer-effects.php` replays recorded events; nothing shows the live loop |
+| [#10](https://github.com/sorocharge/sorocharge-php/issues/10) type the fixtures so the suite passes PHPStan at max | Medium | `Fixtures::load()` returns `mixed`, which is why tests sit outside the analysed paths |
+| [#12](https://github.com/sorocharge/sorocharge-php/issues/12) publish `docs/` as a GitHub Pages site | Medium | `docs/` is markdown only; the homepage points at a directory for want of a site |
+| [#13](https://github.com/sorocharge/sorocharge-php/issues/13) verify `install.sh` on Debian, Fedora and Alpine | Medium | Only proven on macOS and Ubuntu; BusyBox `sort -V` and musl are likely breakages |
+| [#14](https://github.com/sorocharge/sorocharge-php/issues/14) add Fedora and Alpine package hints to `install.sh` | Trivial | `good first issue`: the libclang branch names a package those users do not have |
 
 Set complexity honestly; the docs ask for it to match real scope. Do not pad
 the list with invented Trivial issues.
