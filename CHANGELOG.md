@@ -7,6 +7,8 @@ bump may break the API.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-11-04
+
 ### Added
 
 - `Sorocharge::verifyTransferEffects(array $events, ChargeParams $expected)`,
@@ -50,6 +52,25 @@ bump may break the API.
   `SOROCHARGE_RELEASE_BINARY=1` to expect their absence, and fails if the
   hooks are present anyway.
 
+### Fixed
+
+- CI pins `ubuntu-24.04` instead of following `ubuntu-latest`. That label has
+  migrated to Ubuntu 26, whose default clang is llvm-21, and bindgen cannot
+  parse llvm-21's x86 SSE intrinsics headers against the PHP headers — every
+  Linux job failed with "Unable to generate bindings for PHP" before reaching
+  a test. A build that compiles against the system clang should name its
+  image rather than follow a moving label.
+- `testFatalErrorInClosureStopsTheScriptCleanly` no longer asserts a specific
+  fatal-error exit code. PHP reports one as 255 on most builds and as 1 on
+  others, which says nothing about the behaviour under test.
+- The same test guards its shutdown-function assertion by version. PHP runs
+  shutdown functions after a memory-limit abort from 8.2; on 8.1 it does not.
+  Measured on both Linux and macOS across 8.1–8.5, so it tracks the engine
+  version, not the platform.
+
+Both test fixes were only reachable through CI: the suite had never run on
+PHP 8.1 on either platform, or on macOS at all, before this release.
+
 ## [0.1.0] — 2026-10-20
 
 First release: the signer, bound for PHP.
@@ -81,5 +102,6 @@ First release: the signer, bound for PHP.
 - CI across PHP 8.1–8.5 with `fmt`, `clippy -D warnings`, and the suite run
   against the real compiled extension, plus a malware and supply-chain scan.
 
-[Unreleased]: https://github.com/sorocharge/sorocharge-php/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/sorocharge/sorocharge-php/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sorocharge/sorocharge-php/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sorocharge/sorocharge-php/releases/tag/v0.1.0

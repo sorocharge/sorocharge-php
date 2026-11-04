@@ -105,7 +105,7 @@ In your project's `composer.json`:
         { "type": "vcs", "url": "https://github.com/sorocharge/sorocharge-php" }
     ],
     "require": {
-        "sorocharge/sorocharge": "^0.1"
+        "sorocharge/sorocharge": "^0.2"
     }
 }
 ```
