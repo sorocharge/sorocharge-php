@@ -46,7 +46,14 @@ jobs:
           # private, this entry fails rather than falling back, and the
           # linux-aarch64 binary has to come from elsewhere.
           - { runner: ubuntu-24.04-arm, label: linux-aarch64, ext: so }
-          - { runner: macos-13, label: macos-x86_64, ext: dylib }
+          # macos-15-intel, not macos-13: GitHub retired the macOS 13 image on
+          # 4 December 2025, and a job pinned to a withdrawn label is never
+          # assigned a runner -- it sits in `queued` until the 24-hour timeout
+          # rather than failing, so nothing in the run says what is wrong.
+          # GitHub intends to stop offering Intel macOS after the macOS 15
+          # image retires; when that happens this entry has to go, and an
+          # Intel binary would have to be cross-compiled on arm64.
+          - { runner: macos-15-intel, label: macos-x86_64, ext: dylib }
           - { runner: macos-15, label: macos-aarch64, ext: dylib }
     steps:
       - uses: actions/checkout@v4
@@ -150,7 +157,10 @@ jobs:
     name: Draft the release
     needs: build
     if: github.ref_type == 'tag'
-    runs-on: ubuntu-latest
+    # Pinned like every other runner in this repo: a label that tracks
+    # "latest" changes what a green build means without a commit, which
+    # has already broken this repo once.
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:

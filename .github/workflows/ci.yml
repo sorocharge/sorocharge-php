@@ -82,7 +82,10 @@ jobs:
     # flaky external dependency of its own (the IOC scan is pure local
     # pattern-matching; ClamAV's signature update is allowed to fail soft
     # without blocking, see below).
-    runs-on: ubuntu-latest
+    # Pinned like every other runner in this repo: a label that tracks
+    # "latest" changes what a green build means without a commit, which
+    # has already broken this repo once.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -151,7 +154,10 @@ jobs:
     name: ci
     needs: [build-test, malware-scan]
     if: always()
-    runs-on: ubuntu-latest
+    # Pinned like every other runner in this repo: a label that tracks
+    # "latest" changes what a green build means without a commit, which
+    # has already broken this repo once.
+    runs-on: ubuntu-24.04
     steps:
       - name: Fail unless every required job succeeded
         run: |
