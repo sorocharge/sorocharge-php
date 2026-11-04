@@ -216,9 +216,23 @@ final class SignEntryTest extends TestCase
         // did not continue past it.
         self::assertNotSame(0, $exitCode, "expected a fatal-error exit, got success; stderr: $stderr");
         self::assertStringContainsString('Allowed memory size', $stdout . $stderr);
-        self::assertStringContainsString('shutdown-ran', $stdout);
         self::assertStringNotContainsString('caught', $stdout);
         self::assertStringNotContainsString('continued', $stdout);
+
+        // Whether PHP runs shutdown functions after the memory limit is
+        // exhausted depends on the engine version: on 8.1 stdout comes back
+        // empty, from 8.2 the handler runs. Measured on both Linux and macOS
+        // across 8.1-8.5, so it tracks the version and not the platform.
+        //
+        // Either way it is PHP's own behaviour, not something this extension
+        // can influence; the claim under test -- that a fatal error in the
+        // callback stops the script exactly as it would anywhere else -- is
+        // carried by the assertions above. This one adds that the process
+        // shut down in an orderly way rather than crashing, where the engine
+        // is able to show it.
+        if (PHP_VERSION_ID >= 80200) {
+            self::assertStringContainsString('shutdown-ran', $stdout);
+        }
     }
 
     private static function extensionPath(): string
