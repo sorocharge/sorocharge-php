@@ -158,10 +158,11 @@ Ordered. The first three are the ones a reviewer can see.
    purpose: GitHub does not let you approve your own pull request, so
    requiring one would lock a solo maintainer out of merging. Raise it when
    there is a second maintainer.
-2. **Publish the v0.1.0 release.** The tag `v0.1.0` is pushed but there is no
-   GitHub Release and no binaries. Push a tag to run the release workflow,
-   then review and publish the draft. An empty Releases tab on a tagged repo
-   reads as abandoned.
+2. **Publish the v0.2.0 release.** Tagging `v0.2.0` runs the release workflow,
+   which drafts a release with binaries for PHP 8.1–8.5 across four platforms
+   and `SHA256SUMS`. The draft is never published automatically: review that
+   every expected platform/PHP pair is present, then publish. An empty
+   Releases tab on a tagged repo reads as abandoned.
 3. **Publish `sorocharge/sorocharge` to Packagist**, then simplify the README
    install back to `composer require`. For a PHP library, absence from
    Packagist is the single biggest adoption barrier.
