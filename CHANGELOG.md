@@ -7,6 +7,22 @@ bump may break the API.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-11-04
+
+### Fixed
+
+- The release workflow built no `macos-x86_64` binary. It pinned the
+  `macos-13` runner, which GitHub retired on 4 December 2025; the five Intel
+  macOS jobs were never assigned a runner and sat in `queued` rather than
+  failing, so the run reported nothing wrong. Now `macos-15-intel`, which is
+  the current standard Intel label. Found by cutting 0.2.0: that tag built 15
+  of its 20 binaries and so was never released, and 0.2.1 is the first tag to
+  publish the full set.
+- The three jobs that do not build the extension no longer follow
+  `ubuntu-latest` either. Nothing was broken by it, but an unpinned label lets
+  a GitHub-side image rollout change what a green build means with no commit
+  in between, which is exactly how the Ubuntu 26 breakage below reached `main`.
+
 ## [0.2.0] — 2026-11-04
 
 ### Added
@@ -102,6 +118,7 @@ First release: the signer, bound for PHP.
 - CI across PHP 8.1–8.5 with `fmt`, `clippy -D warnings`, and the suite run
   against the real compiled extension, plus a malware and supply-chain scan.
 
-[Unreleased]: https://github.com/sorocharge/sorocharge-php/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sorocharge/sorocharge-php/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/sorocharge/sorocharge-php/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/sorocharge/sorocharge-php/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sorocharge/sorocharge-php/releases/tag/v0.1.0
