@@ -113,4 +113,10 @@ namespace Sorocharge\Native {
         int $current_ledger,
         string $network_passphrase,
     ): void {}
+
+    /** @param list<string> $events base64 DiagnosticEvent XDR */
+    function verify_transfer_effects(
+        array $events,
+        \Sorocharge\ChargeParams $expected,
+    ): void {}
 }

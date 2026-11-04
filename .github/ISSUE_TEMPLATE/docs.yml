@@ -1,0 +1,33 @@
+name: Documentation problem
+description: Something in the README, docs/ or examples is wrong, missing or misleading.
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Documentation that is wrong about money is a bug. If a documented step
+        does not work at all, say so plainly — that is the most useful kind of
+        report.
+
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: File and section, or a link.
+      placeholder: README.md, "Install" — step 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong
+      description: What it says, what happens instead, or what is missing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested wording
+      description: Optional, but it makes the fix much faster.

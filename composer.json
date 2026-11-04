@@ -18,6 +18,7 @@
     },
     "require-dev": {
         "ext-sodium": "*",
+        "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^10.5 || ^11.5 || ^12.0"
     },
     "autoload": {
@@ -39,10 +40,12 @@
         "test": [
             "Composer\\Config::disableProcessTimeout",
             "scripts/test.sh"
-        ]
+        ],
+        "stan": "phpstan analyse --no-progress"
     },
     "scripts-descriptions": {
         "build": "Build the release extension into target/release/",
-        "test": "Build the extension with test hooks and run the PHPUnit suite against it"
+        "test": "Build the extension with test hooks and run the PHPUnit suite against it",
+        "stan": "Analyse the shipped PHP package surface with PHPStan at level max"
     }
 }

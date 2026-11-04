@@ -1,0 +1,194 @@
+name: release
+
+# Publishes prebuilt extension binaries so using this library does not require
+# a Rust toolchain, libclang and the PHP development headers.
+#
+# A PHP extension is binary-compatible only with the PHP minor version it was
+# built against (ZEND_MODULE_API_NO changes between minors), and with the
+# platform's ABI. There is therefore one artifact per PHP version per
+# platform, and the file name says which: loading the wrong one fails with an
+# unhelpful "API mismatch" from PHP, so the name has to carry the answer.
+#
+# Pushing a v* tag drafts a release. The draft is never published
+# automatically: a human checks the artifact list and the notes first.
+# workflow_dispatch runs the same build with no release step, to prove the
+# matrix still works between tags.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.platform.label }} / PHP ${{ matrix.php }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      # Two dimensions, so this is the full 5 x 4 cross product. Expressed as
+      # a `platform` object rather than as `include:` entries, because an
+      # `include:` entry that does not name every existing dimension is
+      # applied to all of them instead of creating a new combination, which
+      # would silently build five jobs on one runner.
+      matrix:
+        php: ["8.1", "8.2", "8.3", "8.4", "8.5"]
+        platform:
+          # Pinned, not ubuntu-latest: see the note in ci.yml. llvm-21 on
+          # Ubuntu 26 breaks bindgen against the PHP headers.
+          - { runner: ubuntu-24.04, label: linux-x86_64, ext: so }
+          # Free for public repositories only. If this repo is ever made
+          # private, this entry fails rather than falling back, and the
+          # linux-aarch64 binary has to come from elsewhere.
+          - { runner: ubuntu-24.04-arm, label: linux-aarch64, ext: so }
+          - { runner: macos-13, label: macos-x86_64, ext: dylib }
+          - { runner: macos-15, label: macos-aarch64, ext: dylib }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PHP ${{ matrix.php }} (with php-config / dev headers)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: sodium
+          tools: composer:v2
+
+      # No libclang install step here on purpose. The runner images already
+      # ship a working libclang, and `apt-get install libclang-dev` pulls an
+      # llvm whose x86 SSE intrinsics headers (xmmintrin.h, emmintrin.h)
+      # bindgen cannot parse against the PHP headers, failing every Linux job
+      # with "Unable to generate bindings for PHP".
+
+      - name: Install Rust 1.98.1
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.platform.label }}-php-${{ matrix.php }}
+
+      # No --features test-hooks: the panic and error-mapping hooks must never
+      # reach a shipped binary. Spelled out rather than relied on, because the
+      # feature is additive and a stray default would be invisible here.
+      - name: Build the extension
+        run: cargo build --release --no-default-features
+
+      - name: Refuse a binary that carries the test hooks
+        shell: bash
+        run: |
+          lib="target/release/libsorocharge.${{ matrix.platform.ext }}"
+          if php -d extension="$PWD/$lib" -r \
+              'exit(function_exists("Sorocharge\\Internal\\trigger_panic") ? 0 : 1);'; then
+            echo "::error::this build exposes the test hooks and must not be released"
+            exit 1
+          fi
+
+      - name: Verify the binary loads and the API is present
+        shell: bash
+        run: |
+          lib="target/release/libsorocharge.${{ matrix.platform.ext }}"
+          php -d extension="$PWD/$lib" -r '
+            if (!extension_loaded("sorocharge")) {
+              fwrite(STDERR, "extension did not load\n");
+              exit(1);
+            }
+            $missing = array_values(array_filter([
+                "Sorocharge\\Native\\build_charge_entry",
+                "Sorocharge\\Native\\sign_entry",
+                "Sorocharge\\Native\\verify_entry",
+                "Sorocharge\\Native\\verify_transfer_effects",
+            ], fn (string $f): bool => !function_exists($f)));
+            if ($missing !== []) {
+              fwrite(STDERR, "missing: " . implode(", ", $missing) . "\n");
+              exit(1);
+            }
+            printf("ok: %s on PHP %s\n", phpversion("sorocharge") ?: "sorocharge", PHP_VERSION);
+          '
+
+      # The suite against the artifact being shipped, so a release binary is
+      # never published on the strength of a CI run of a different build
+      # profile. The tests that call the test hooks are excluded by group,
+      # because a release binary must not contain them; SOROCHARGE_RELEASE_BINARY
+      # tells tests/bootstrap.php to expect their absence and to fail if the
+      # hooks are present after all.
+      - name: Run the suite against this binary
+        shell: bash
+        env:
+          SOROCHARGE_RELEASE_BINARY: "1"
+        run: |
+          composer install --no-interaction --no-progress --ignore-platform-req=ext-sorocharge
+          # One test re-runs php in a subprocess to prove a fatal error inside
+          # the signing callback still stops the script, and needs the path.
+          export SOROCHARGE_EXTENSION="$PWD/target/release/libsorocharge.${{ matrix.platform.ext }}"
+          php -d extension="$SOROCHARGE_EXTENSION" \
+            vendor/bin/phpunit --exclude-group needs-test-hooks
+
+      - name: Name the artifact
+        id: name
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          [ "$GITHUB_REF_TYPE" = "tag" ] || version="$(git rev-parse --short HEAD)"
+          name="sorocharge-${version}-php${{ matrix.php }}-${{ matrix.platform.label }}.${{ matrix.platform.ext }}"
+          mkdir -p dist
+          cp "target/release/libsorocharge.${{ matrix.platform.ext }}" "dist/$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.name }}
+          path: dist/${{ steps.name.outputs.name }}
+          if-no-files-found: error
+
+  draft-release:
+    name: Draft the release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          ls -l
+          sha256sum sorocharge-* > SHA256SUMS
+          cat SHA256SUMS
+
+      # Draft, never published: a human confirms that every expected
+      # platform/PHP pair is present before anyone can download it.
+      - name: Draft a release with the binaries attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --draft \
+            --notes "Prebuilt \`sorocharge\` extension binaries.
+
+          Pick the file matching your PHP minor version **and** platform, then
+          see [Install](https://github.com/$GITHUB_REPOSITORY#install). An
+          extension built for one PHP minor version will not load in another.
+
+          Verify what you downloaded before loading it:
+
+          \`\`\`sh
+          sha256sum --check --ignore-missing SHA256SUMS
+          \`\`\`
+
+          Built from \`$GITHUB_SHA\` by [this run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID), with the \`test-hooks\` feature absent and the suite run against each binary." \
+            dist/*

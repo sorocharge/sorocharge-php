@@ -208,11 +208,31 @@ final class SignEntryTest extends TestCase
         $stderr = stream_get_contents($pipes[2]);
         $exitCode = proc_close($process);
 
-        self::assertSame(255, $exitCode, "expected a fatal-error exit, got $exitCode; stderr: $stderr");
+        // Not a specific code: PHP reports a fatal error as 255 on most
+        // builds but as 1 on others (PHP 8.1 on macOS, for one), and which it
+        // is says nothing about the behaviour under test. What matters is that
+        // the script died, that it died of the memory limit, and -- the four
+        // assertions below -- that the error was not catchable and execution
+        // did not continue past it.
+        self::assertNotSame(0, $exitCode, "expected a fatal-error exit, got success; stderr: $stderr");
         self::assertStringContainsString('Allowed memory size', $stdout . $stderr);
-        self::assertStringContainsString('shutdown-ran', $stdout);
         self::assertStringNotContainsString('caught', $stdout);
         self::assertStringNotContainsString('continued', $stdout);
+
+        // Whether PHP runs shutdown functions after the memory limit is
+        // exhausted depends on the engine version: on 8.1 stdout comes back
+        // empty, from 8.2 the handler runs. Measured on both Linux and macOS
+        // across 8.1-8.5, so it tracks the version and not the platform.
+        //
+        // Either way it is PHP's own behaviour, not something this extension
+        // can influence; the claim under test -- that a fatal error in the
+        // callback stops the script exactly as it would anywhere else -- is
+        // carried by the assertions above. This one adds that the process
+        // shut down in an orderly way rather than crashing, where the engine
+        // is able to show it.
+        if (PHP_VERSION_ID >= 80200) {
+            self::assertStringContainsString('shutdown-ran', $stdout);
+        }
     }
 
     private static function extensionPath(): string

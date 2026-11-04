@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # The extension crate. sorocharge-signer is pinned to an exact git tag on
+  # purpose and must stay that way; moving it also means re-copying the golden
+  # vectors and mapping any new error variant, so those bumps are done by hand
+  # (see CONTRIBUTING.md, "Moving the core pin").
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    ignore:
+      - dependency-name: "sorocharge-signer"
+      # Must match sorocharge-core's own pin exactly, or Address and the
+      # SorobanAuthorizationEntry inside Unsigned/SignedEntry become different
+      # types and the crate stops compiling.
+      - dependency-name: "stellar-xdr"
+      # Pinned to an exact version: an ext-php-rs minor can change the macro
+      # output and the generated PHP surface, which StubsTest would catch but
+      # only after a surprise.
+      - dependency-name: "ext-php-rs"
+
+  - package-ecosystem: composer
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci(deps)"

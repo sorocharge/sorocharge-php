@@ -10,11 +10,27 @@ env:
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    name: PHP ${{ matrix.php }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # Every supported PHP version on Linux, plus the ends of the range on
+      # macOS. The README has always claimed macOS, and the extension links
+      # differently there (see .cargo/config.toml), so it needs to be built
+      # and tested somewhere rather than assumed.
       matrix:
         php: ["8.1", "8.2", "8.3", "8.4", "8.5"]
+        # ubuntu-24.04, not ubuntu-latest: the latest label migrated to
+        # Ubuntu 26, whose default clang is llvm-21, and bindgen cannot parse
+        # llvm-21's x86 SSE intrinsics headers against the PHP headers
+        # ("Unable to generate bindings for PHP"). A build that reads the
+        # system clang should name its image anyway rather than follow a
+        # moving label.
+        os: [ubuntu-24.04, macos-15]
+        exclude:
+          - { os: macos-15, php: "8.2" }
+          - { os: macos-15, php: "8.3" }
+          - { os: macos-15, php: "8.4" }
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +41,12 @@ jobs:
           extensions: sodium
           tools: composer:v2
 
+      # No libclang install step here on purpose. The runner images already
+      # ship a working libclang, and `apt-get install libclang-dev` pulls an
+      # llvm whose x86 SSE intrinsics headers (xmmintrin.h, emmintrin.h)
+      # bindgen cannot parse against the PHP headers, failing every Linux job
+      # with "Unable to generate bindings for PHP".
+
       - name: Install Rust 1.98.1
         uses: dtolnay/rust-toolchain@master
         with:
@@ -33,7 +55,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: php-${{ matrix.php }}
+          key: php-${{ matrix.php }}-${{ matrix.os }}
 
       - name: fmt check
         run: cargo fmt --all -- --check
@@ -48,6 +70,9 @@ jobs:
         # ext-sorocharge is the extension this repo builds; it can't be
         # installed before the build, so skip only that platform check.
         run: composer install --no-interaction --no-progress --ignore-platform-req=ext-sorocharge
+
+      - name: phpstan (level max, on the shipped package surface)
+        run: composer stan
 
       - name: composer test (builds with test hooks, runs PHPUnit against it)
         run: composer test
@@ -110,3 +135,30 @@ jobs:
         run: |
           echo "::error::IOC/heuristic malware scan failed — see the scan step above for details."
           exit 1
+
+  # A single stable status check for branch protection to require.
+  #
+  # build-test is a matrix, so its own check names are the expanded ones
+  # ("PHP 8.1 / ubuntu-latest", ...). Requiring those directly means editing
+  # branch protection every time the matrix changes, and a required context
+  # that no longer exists blocks every merge silently. This job's name does
+  # not move, so `ci` is the only context protection needs.
+  #
+  # if: always() so this runs even when a needed job fails — otherwise a
+  # failure would leave the check pending rather than red, which protection
+  # treats as "not yet", not as "no".
+  ci:
+    name: ci
+    needs: [build-test, malware-scan]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every required job succeeded
+        run: |
+          echo "build-test:   ${{ needs.build-test.result }}"
+          echo "malware-scan: ${{ needs.malware-scan.result }}"
+          if [ "${{ needs.build-test.result }}" != "success" ] \
+            || [ "${{ needs.malware-scan.result }}" != "success" ]; then
+            echo "::error::a required job did not succeed"
+            exit 1
+          fi

@@ -1,0 +1,27 @@
+parameters:
+    level: max
+
+    # Only the shipped Composer package surface. That is what a consumer's own
+    # static analysis will see, so it is held to the strictest level and kept
+    # at zero errors.
+    #
+    # tests/integration and examples/ are deliberately out:
+    #   - the suite passes wrong types on purpose (a non-string event, a
+    #     malformed amount) to prove the library rejects them, so "correct"
+    #     test code here is code PHPStan must object to;
+    #   - examples/laravel-middleware.php references Illuminate classes and
+    #     Laravel's global helpers, which are not dev dependencies and should
+    #     not become ones just to satisfy an analyser.
+    # Including them at a weaker level would report a passing gate without
+    # checking anything that matters.
+    paths:
+        - php/src
+
+    # ChargeParams, UnsignedEntry, SignedEntry and the Sorocharge\Native\*
+    # functions are defined by the compiled extension, so they are not on
+    # disk. Analysing against the stubs means this check needs no built
+    # extension, and it makes the stub file load-bearing in both directions:
+    # if it drifts from the extension, StubsTest fails; if it drifts from the
+    # PHP layer, this fails.
+    scanFiles:
+        - php/stubs/sorocharge.stub.php
