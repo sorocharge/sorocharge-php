@@ -150,11 +150,14 @@ environment.
 
 Ordered. The first three are the ones a reviewer can see.
 
-1. **Make `build-test` a required status check on `main`.** Right now the only
-   required check is `malware-scan`, so the test suite does not gate merges.
-   A reviewer looking at branch protection sees tests that cannot block a bad
-   merge. Add `build-test` (and consider requiring one approving review and
-   conversation resolution).
+1. ~~Make the test suite a required status check on `main`~~ — done
+   2026-11-04. `main` now requires the `ci` and `malware-scan` contexts, a
+   pull request, and conversation resolution, with admins included and force
+   pushes off. `ci` is a gate job that needs `build-test`, so the matrix can
+   change without editing protection. The approving-review count is **0** on
+   purpose: GitHub does not let you approve your own pull request, so
+   requiring one would lock a solo maintainer out of merging. Raise it when
+   there is a second maintainer.
 2. **Publish the v0.1.0 release.** The tag `v0.1.0` is pushed but there is no
    GitHub Release and no binaries. Push a tag to run the release workflow,
    then review and publish the draft. An empty Releases tab on a tagged repo
@@ -163,10 +166,11 @@ Ordered. The first three are the ones a reviewer can see.
    install back to `composer require`. For a PHP library, absence from
    Packagist is the single biggest adoption barrier.
 4. **Close issue #1** — `CONTRIBUTING.md` and `SECURITY.md` now exist.
-5. **Set the repository homepage** to the docs or the core repo; it is empty.
-6. **Enable Discussions**, so usage questions have somewhere to go that is not
-   the issue tracker. (A contact link for it was left out of
-   `.github/ISSUE_TEMPLATE/config.yml` precisely because it is off.)
+5. ~~Set the repository homepage~~ — done 2026-11-04, pointing at `docs/`.
+   Change it to the Packagist page once the package is published.
+6. ~~Enable Discussions~~ — done 2026-11-04, and the contact link is in
+   `.github/ISSUE_TEMPLATE/config.yml`. Seed it with one post so the tab is
+   not empty.
 7. **Confirm the Drips Wave GitHub App is installed** on the `sorocharge` org
    with access to this repo, and that the org is onboarded.
 8. **Complete identity verification** in the app if it asks.
