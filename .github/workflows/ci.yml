@@ -127,3 +127,30 @@ jobs:
         run: |
           echo "::error::IOC/heuristic malware scan failed — see the scan step above for details."
           exit 1
+
+  # A single stable status check for branch protection to require.
+  #
+  # build-test is a matrix, so its own check names are the expanded ones
+  # ("PHP 8.1 / ubuntu-latest", ...). Requiring those directly means editing
+  # branch protection every time the matrix changes, and a required context
+  # that no longer exists blocks every merge silently. This job's name does
+  # not move, so `ci` is the only context protection needs.
+  #
+  # if: always() so this runs even when a needed job fails — otherwise a
+  # failure would leave the check pending rather than red, which protection
+  # treats as "not yet", not as "no".
+  ci:
+    name: ci
+    needs: [build-test, malware-scan]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every required job succeeded
+        run: |
+          echo "build-test:   ${{ needs.build-test.result }}"
+          echo "malware-scan: ${{ needs.malware-scan.result }}"
+          if [ "${{ needs.build-test.result }}" != "success" ] \
+            || [ "${{ needs.malware-scan.result }}" != "success" ]; then
+            echo "::error::a required job did not succeed"
+            exit 1
+          fi
